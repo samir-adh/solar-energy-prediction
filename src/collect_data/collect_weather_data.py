@@ -13,7 +13,7 @@ def main():
 
     # Collection automatique (30 derniers jours)
     weather_collector.save_data(
-        start_date="2021-01-01",
+        start_date="2020-01-01",
         end_date="2025-01-01"
     )
 

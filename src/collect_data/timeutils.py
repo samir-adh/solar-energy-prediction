@@ -17,5 +17,9 @@ def int_to_date(date: int) -> str:
     return dt.strftime("%Y-%m-%d")
 
 
-def format_datetime(dt: datetime):
-    return dt.strftime("%Y-%m-%dT00:00:00+01:00")
+def format_datetime(dt: datetime | int | float) -> str:
+    if isinstance(dt, int) or isinstance(dt, float):
+        dt = datetime.fromtimestamp(dt, tz=zoneinfo.ZoneInfo('Europe/Paris'))
+    formatted = dt.replace(tzinfo=zoneinfo.ZoneInfo('Europe/Paris')).strftime("%Y-%m-%dT%H:%M:%S%z")
+    formatted =formatted[:-2] + ':' + formatted[-2:]
+    return formatted

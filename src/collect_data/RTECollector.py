@@ -4,16 +4,17 @@ from logging import Logger
 import logging
 import os
 from typing import Optional, Dict, Any, AbstractSet
+import zoneinfo
 
 import pandas as pd
 import requests
 
-from timeutils import date_to_int
+from timeutils import date_to_int, format_datetime
 from tqdm import tqdm
 
 
 class RTECollector():
-    def __init__(self, client_id: str, client_secret: str, save_dir: str, logger: Optional[Logger] = None) -> None:
+    def __init__(self, client_id: str, client_secret: str, save_dir: str, production_type: Optional[str] = None,logger: Optional[Logger] = None) -> None:
         self.client_id = client_id
         self.client_secret = client_secret
         self.base_url = "https://digital.iservices.rte-france.com"
@@ -21,6 +22,7 @@ class RTECollector():
         self.api_base = f"{self.base_url}/open_api/actual_generation/v1"
         self.access_token = None
         self.token_expires_at = None
+        self.production_type = production_type
 
         self.save_dir = save_dir
 
@@ -54,6 +56,7 @@ class RTECollector():
             if response.status_code == 200:
                 token_data = response.json()
                 self.access_token = token_data['access_token']
+                self.logger.info(f"Access token: {self.access_token}")
                 # Token valid for 2 hours
                 expires_in = token_data.get('expires_in', 7200)
                 self.token_expires_at = datetime.now() + timedelta(seconds=expires_in)
@@ -109,11 +112,15 @@ class RTECollector():
             'end_date': end_date
         }
 
+        if self.production_type:
+            self.logger.info(f"Fetching data for production type: {self.production_type}")
+            params['production_type'] = self.production_type
+
+
         try:
             self.logger.info(
                 f"Fetching data from API: actual_generations_per_production_type")
             self.logger.info(f"Period: from {start_date} to {end_date}")
-
             response = requests.get(url, headers=headers, params=params)
 
             result = {
@@ -161,11 +168,11 @@ class RTECollector():
         while current_timestamp <= end_date_float:
             dates.append(
                 (
-                    datetime.fromtimestamp(current_timestamp).isoformat(),
-                    datetime.fromtimestamp(
-                        current_timestamp + step_in_seconds).isoformat()
+                    format_datetime(current_timestamp),
+                    format_datetime(current_timestamp + step_in_seconds)
                 )
             )
+            current_timestamp += step_in_seconds
         return dates
 
     def save_data(self, start_date: Optional[str] = None, end_date: Optional[str] = None):
@@ -177,7 +184,7 @@ class RTECollector():
             end_date_datetime = datetime.now() - timedelta(days=1)
             end_date = end_date_datetime.strftime("%Y-%m-%dT00:00:00+01:00")
 
-        dates = self.slice_dates(start_date, end_date, 24)
+        dates = self.slice_dates(start_date, end_date, 120*24)
         parts = []
         for (start, end) in tqdm(dates):
             result = self.fetch_data(
@@ -187,10 +194,16 @@ class RTECollector():
             parts.append(
                 self.parse_result(result)
             )
-        
+
         data = parts[0]
-        for part in data[1:]:
-            for production_type, values in part:
+        for part in parts[1:]:
+            for production_type, values in part.items():
+                if production_type not in data:
+                    data[production_type] = {
+                        'start': [],
+                        'end': [],
+                        'values': []
+                    }
                 for k in values.keys():
                     data[production_type][k] += values[k]
 

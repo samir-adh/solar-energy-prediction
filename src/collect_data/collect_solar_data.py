@@ -18,12 +18,15 @@ def main():
         return
 
     rte_data_collector = RTECollector(
-        CLIENT_ID, CLIENT_SECRET, save_dir="data/", logger=logger)
+        CLIENT_ID, CLIENT_SECRET, save_dir="data/energy", production_type="SOLAR", logger=logger)
 
-    start_date = format_datetime(datetime.now() - timedelta(days=10))
-    end_date = format_datetime(datetime.now() - timedelta(days=7))
+    start_date = format_datetime(datetime.fromisoformat("2020-01-01"))
+    end_date = format_datetime(datetime.fromisoformat("2025-01-01"))
+    print(f"Fetching data from {start_date} to {end_date}")
 
     rte_data_collector.save_data(start_date, end_date)
+    # result = rte_data_collector.fetch_data(
+    #     start_date=start_date, end_date=end_date)
 
 
 if __name__ == '__main__':
