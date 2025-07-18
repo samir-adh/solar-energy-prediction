@@ -1,10 +1,11 @@
 import base64
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, tzinfo
 from logging import Logger
 import logging
 import os
 from typing import Optional, Dict, Any, AbstractSet
 import zoneinfo
+from datetime import timedelta
 
 import pandas as pd
 import requests
@@ -14,7 +15,7 @@ from tqdm import tqdm
 
 
 class RTECollector():
-    def __init__(self, client_id: str, client_secret: str, save_dir: str, production_type: Optional[str] = None,logger: Optional[Logger] = None) -> None:
+    def __init__(self, client_id: str, client_secret: str, save_dir: str, production_type: Optional[str] = None, logger: Optional[Logger] = None) -> None:
         self.client_id = client_id
         self.client_secret = client_secret
         self.base_url = "https://digital.iservices.rte-france.com"
@@ -86,19 +87,17 @@ class RTECollector():
             return self.get_oauth2_token()
         return True
 
-    def fetch_data(self, start_date: Optional[str] = None, end_date: Optional[str] = None) -> Dict[str, Any]:
+    def fetch_data(self, start_date: Optional[datetime] = None, end_date: Optional[datetime] = None) -> Dict[str, Any]:
         if not self.ensure_valid_token():
             return {"error": "Can't get valid token"}
 
         # Set default start and end dates
         if not start_date:
             # Default start date : 30 days ago
-            start_date = (datetime.now()-timedelta(days=30)
-                          ).strftime("%Y-%m-%dT00:00:00+01:00")
+            start_date = datetime.now()-timedelta(days=30)
         if not end_date:
             # Default end date : yesterday
-            end_date = (datetime.now()-timedelta(days=1)
-                        ).strftime("%Y-%m-%dT23:59:59+01:00")
+            end_date = datetime.now()-timedelta(days=1)
 
         url = f"{self.api_base}/actual_generations_per_production_type"
 
@@ -108,14 +107,14 @@ class RTECollector():
         }
 
         params = {
-            'start_date': start_date,
-            'end_date': end_date
+            'start_date': format_datetime(start_date),
+            'end_date': format_datetime(end_date)
         }
 
         if self.production_type:
-            self.logger.info(f"Fetching data for production type: {self.production_type}")
+            self.logger.info(
+                f"Fetching data for production type: {self.production_type}")
             params['production_type'] = self.production_type
-
 
         try:
             self.logger.info(
@@ -159,32 +158,30 @@ class RTECollector():
             self.logger.error(f"Exception when fetching data: {str(e)}")
             return {"error": str(e), "success": False}
 
-    def slice_dates(self, start_date: str, end_date: str, step_in_hours: int) -> list[tuple[str, str]]:
-        start_date_float = datetime.fromisoformat(start_date).timestamp()
-        end_date_float = datetime.fromisoformat(end_date).timestamp()
-        step_in_seconds = step_in_hours * 60 * 60
-        dates: list[tuple[str, str]] = []
-        current_timestamp = start_date_float
-        while current_timestamp <= end_date_float:
+    def slice_dates(self, start_date: datetime, end_date: datetime, delta: timedelta = timedelta(days=7)) -> list[tuple[datetime, datetime]]:
+
+        dates: list[tuple[datetime, datetime]] = []
+
+        current_date = start_date
+        while current_date <= end_date:
             dates.append(
                 (
-                    format_datetime(current_timestamp),
-                    format_datetime(current_timestamp + step_in_seconds)
+                    current_date,
+                    current_date + delta
                 )
             )
-            current_timestamp += step_in_seconds
+            current_date += delta
         return dates
 
-    def save_data(self, start_date: Optional[str] = None, end_date: Optional[str] = None):
+    def save_data(self, start_date: Optional[datetime] = None, end_date: Optional[datetime] = None):
         if start_date is None:
-            start_date_datetime = datetime.now() - timedelta(days=30)
-            start_date = start_date_datetime.strftime(
-                "%Y-%m-%dT00:00:00+01:00")
+            start_date = datetime.now() - timedelta(days=30)
+            # start_date = start_date_datetime.strftime("%Y-%m-%dT00:00:00+01:00")
         if end_date is None:
-            end_date_datetime = datetime.now() - timedelta(days=1)
-            end_date = end_date_datetime.strftime("%Y-%m-%dT00:00:00+01:00")
+            end_date = datetime.now() - timedelta(days=1)
+            # end_date = end_date_datetime.strftime("%Y-%m-%dT00:00:00+01:00")
 
-        dates = self.slice_dates(start_date, end_date, 120*24)
+        dates = self.slice_dates(start_date, end_date, timedelta(days=120))
         parts = []
         for (start, end) in tqdm(dates):
             result = self.fetch_data(

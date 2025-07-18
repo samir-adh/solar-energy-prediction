@@ -53,9 +53,9 @@ class WeatherCollector:
         self.logger = logger
 
     def fetch_station_data(self,
-                           station_key: str,
-                           start_date: str,
-                           end_date: str,
+                           station_key:  str,
+                           start_date: datetime,  # str,
+                           end_date: datetime,  # str,
                            granularity: str = 'hourly',
                            ) -> Dict[str, Any]:
         """
@@ -76,8 +76,8 @@ class WeatherCollector:
         params = {
             'latitude': station['lat'],
             'longitude': station['lon'],
-            'start_date': start_date,
-            'end_date': end_date,
+            'start_date': start_date.strftime("%Y-%m-%d"),
+            'end_date': end_date.strftime("%Y-%m-%d"),
             'timezone': 'Europe/Paris'  # Fuseau français
         }
 
@@ -130,47 +130,17 @@ class WeatherCollector:
             self.logger.error(f"❌ Exception for {station['name']}: {str(e)}")
             return {"error": str(e), "success": False, "station_key": station_key}
 
-    def slice_date_range(self, start_date: str, end_date: str, step_in_hours: int = 24) -> list[tuple[str, str]]:
-        start_date_int = date_to_int(start_date)
-        end_date_int = date_to_int(end_date)
-        timestamp_list: list[str] = []
-        step_in_seconds = step_in_hours * 60 * 60
-        current_timestamp = start_date_int
-        while current_timestamp <= end_date_int:
-            timestamp_list.append(int_to_date(current_timestamp))
-            current_timestamp += step_in_seconds
-        timestamp_list_str = [(timestamp_list[i-1], timestamp_list[i-1])
-                              for i in range(len(timestamp_list)-1)]
-        return timestamp_list_str
-
     def fetch_all_stations_data(self,
-                                start_date: str,
-                                end_date: str,
+                                start_date: datetime,
+                                end_date: datetime,
                                 granularity: str = 'hourly') -> Dict[str, Any]:
         """
         Récupère données météo pour toutes les stations
         """
-        # dates = self.slice_date_range(start_date, end_date)
-        # all_results = {}
-        # for station_key in self.stations.keys():
-        #     results_list = []
-        #     for slice_start, slice_end in dates:
-        #         result = self.fetch_station_data(
-        #             station_key, slice_start, slice_end, granularity)
-        #         results_list.append(result)
-
-        #     station_results = results_list[0]
-        #     for result in results_list[1:]:
-        #         for key, value in result['data']['hourly'].items():
-        #             station_results['data']['hourly'][key] += value
-        #     all_results[station_key] = station_results
-
-        #     # Petit délai pour être respectueux de l'API
-        #     import time
-        #     time.sleep(0.1)
         all_results = {}
         for station_key in self.stations.keys():
-            results = self.fetch_station_data(station_key, start_date, end_date, granularity)
+            results = self.fetch_station_data(
+                station_key, start_date, end_date, granularity)
             all_results[station_key] = results
 
         return all_results
@@ -225,20 +195,20 @@ class WeatherCollector:
         return df
 
     def save_data(self,
-                  start_date: Optional[str] = None,
-                  end_date: Optional[str] = None,
+                  start_date: datetime,  # Optional[str] = None,
+                  end_date: datetime,  # Optional[str] = None,
                   granularity: str = 'hourly'):
         """
         Sauvegarde données météo au format CSV (similaire à RTECollector.save_data)
         """
         # Dates par défaut (même logique que RTECollector)
         if start_date is None:
-            start_date_datetime = datetime.now() - timedelta(days=5)
-            start_date = start_date_datetime.strftime("%Y-%m-%d")
+            start_date = datetime.now() - timedelta(days=5)
+            # start_date = start_date_datetime.strftime("%Y-%m-%d")
 
         if end_date is None:
-            end_date_datetime = datetime.now() - timedelta(days=1)
-            end_date = end_date_datetime.strftime("%Y-%m-%d")
+            end_date = datetime.now() - timedelta(days=1)
+            # end_date = end_date_datetime.strftime("%Y-%m-%d")
 
         self.logger.info(f"Starting weather data collection")
         self.logger.info(f"Period: {start_date} to {end_date}")

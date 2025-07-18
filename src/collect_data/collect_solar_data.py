@@ -20,8 +20,8 @@ def main():
     rte_data_collector = RTECollector(
         CLIENT_ID, CLIENT_SECRET, save_dir="data/energy", production_type="SOLAR", logger=logger)
 
-    start_date = format_datetime(datetime.fromisoformat("2020-01-01"))
-    end_date = format_datetime(datetime.fromisoformat("2025-01-01"))
+    start_date = datetime(2020,1,1)
+    end_date = datetime(2025,1,1)
     print(f"Fetching data from {start_date} to {end_date}")
 
     rte_data_collector.save_data(start_date, end_date)
