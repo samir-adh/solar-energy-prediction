@@ -1,13 +1,29 @@
 from WeatherCollector import WeatherCollector
 import logging
 from datetime import datetime
+import json
+from WeatherStation import WeatherStation
+
 
 def main():
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
+
+    with open('locations.json', 'r') as f:
+        locations = json.load(f)
+
+    stations = [
+        WeatherStation(
+            name=location['name'],
+            latitude=location['latitude'],
+            longitude=location['longitude'])
+        for location in locations
+    ]
+
     # Configuration
     weather_collector = WeatherCollector(
-        save_dir="data/raw/weather",
+        save_dir="data/weather",
+        stations=stations,
         logger=logger  # optionnel
     )
 
@@ -27,5 +43,6 @@ def main():
     #     granularity="hourly"  # ou "daily"
     # )
 
-if __name__=='__main__':
+
+if __name__ == '__main__':
     main()

@@ -1,0 +1,107 @@
+[
+  {
+    "name": "Aniche",
+    "latitude": 50.333328,
+    "longitude": 3.25
+  },
+  {
+    "name": "Beaupouyet",
+    "latitude": 44.9964,
+    "longitude": 0.271667
+  },
+  {
+    "name": "Bugnicourt",
+    "latitude": 50.2833,
+    "longitude": 3.1333
+  },
+  {
+    "name": "Cantin",
+    "latitude": 50.3667,
+    "longitude": 3.0833
+  },
+  {
+    "name": "Cestas",
+    "latitude": 44.7333,
+    "longitude": -0.683333
+  },
+  {
+    "name": "Dechy",
+    "latitude": 50.35,
+    "longitude": 3.1167
+  },
+  {
+    "name": "Hamel",
+    "latitude": 50.1167,
+    "longitude": 2.8833
+  },
+  {
+    "name": "Haulchin",
+    "latitude": 50.3667,
+    "longitude": 3.6333
+  },
+  {
+    "name": "Jeumont",
+    "latitude": 50.3,
+    "longitude": 4.1167
+  },
+  {
+    "name": "Leforest",
+    "latitude": 50.4333,
+    "longitude": 3.0667
+  },
+  {
+    "name": "Losse",
+    "latitude": 44.0,
+    "longitude": 0.5
+  },
+  {
+    "name": "Lourches",
+    "latitude": 50.3167,
+    "longitude": 3.3333
+  },
+  {
+    "name": "Marville",
+    "latitude": 49.4833,
+    "longitude": 5.5
+  },
+  {
+    "name": "Niergnies-Séranvillers-Forenville",
+    "latitude": 50.0833,
+    "longitude": 3.4167
+  },
+  {
+    "name": "Oxelaëre",
+    "latitude": 50.7833,
+    "longitude": 2.4167
+  },
+  {
+    "name": "Colle-des-Mées",
+    "latitude": 44.0333,
+    "longitude": 5.98333
+  },
+  {
+    "name": "Pont-sur-Sambre",
+    "latitude": 50.2167,
+    "longitude": 3.9333
+  },
+  {
+    "name": "Prouvy-Trith-Saint-Léger",
+    "latitude": 50.3167,
+    "longitude": 3.4333
+  },
+  {
+    "name": "Somain",
+    "latitude": 50.3667,
+    "longitude": 3.2833
+  },
+  {
+    "name": "Thémis",
+    "latitude": 42.5125,
+    "longitude": 1.9722
+  },
+  {
+    "name": "Toul-Rosières",
+    "latitude": 48.7933,
+    "longitude": 6.00194
+  }
+]

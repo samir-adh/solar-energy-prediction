@@ -1,5 +1,6 @@
 from functools import reduce
 import os
+import time
 import pandas as pd
 import requests
 from datetime import datetime, timedelta
@@ -8,22 +9,34 @@ import logging
 from typing import Optional, Dict, Any, List
 from tqdm import tqdm
 
+from src.collect_data.WeatherStation import WeatherStation
 from timeutils import date_to_int, int_to_date
 
 
 class WeatherCollector:
-    def __init__(self, save_dir: str, logger: Optional[Logger] = None) -> None:
+    def __init__(self, save_dir: str, stations: list[WeatherStation] | None = None, logger: Logger | None = None) -> None:
         self.base_url = "https://archive-api.open-meteo.com/v1/archive"
         self.save_dir = save_dir
 
         # Stations stratégiques françaises avec coordonnées
-        self.stations = {
-            'paris': {'lat': 48.8566, 'lon': 2.3522, 'name': 'Paris'},
-            'lyon': {'lat': 45.7640, 'lon': 4.8357, 'name': 'Lyon'},
-            'marseille': {'lat': 43.2965, 'lon': 5.3698, 'name': 'Marseille'},
-            'toulouse': {'lat': 43.6047, 'lon': 1.4442, 'name': 'Toulouse'},
-            'brest': {'lat': 48.3904, 'lon': -4.4861, 'name': 'Brest'}
-        }
+        if not stations:
+            self.stations = [
+                WeatherStation("Paris", 48.8566, 2.3522),
+                WeatherStation("Lyon", 45.7640, 4.8357),
+                WeatherStation("Marseille", 43.2965, 5.3698),
+                WeatherStation("Toulouse", 43.6047, 1.4442),
+                WeatherStation("Brest", 48.3904, -4.4861)
+            ]
+        else:
+            self.stations = stations
+
+        # self.stations = {
+        #     'paris': {'lat': 48.8566, 'lon': 2.3522, 'name': 'Paris'},
+        #     'lyon': {'lat': 45.7640, 'lon': 4.8357, 'name': 'Lyon'},
+        #     'marseille': {'lat': 43.2965, 'lon': 5.3698, 'name': 'Marseille'},
+        #     'toulouse': {'lat': 43.6047, 'lon': 1.4442, 'name': 'Toulouse'},
+        #     'brest': {'lat': 48.3904, 'lon': -4.4861, 'name': 'Brest'}
+        # }
 
         # Variables énergétiques critiques
         self.daily_params = [
@@ -53,7 +66,7 @@ class WeatherCollector:
         self.logger = logger
 
     def fetch_station_data(self,
-                           station_key:  str,
+                           station:  WeatherStation,
                            start_date: datetime,  # str,
                            end_date: datetime,  # str,
                            granularity: str = 'hourly',
@@ -68,14 +81,9 @@ class WeatherCollector:
             granularity: 'hourly' ou 'daily'
         """
 
-        if station_key not in self.stations:
-            return {"error": f"Station {station_key} non reconnue", "success": False}
-
-        station = self.stations[station_key]
-
         params = {
-            'latitude': station['lat'],
-            'longitude': station['lon'],
+            'latitude': station.latitude,
+            'longitude': station.longitude,
             'start_date': start_date.strftime("%Y-%m-%d"),
             'end_date': end_date.strftime("%Y-%m-%d"),
             'timezone': 'Europe/Paris'  # Fuseau français
@@ -89,7 +97,7 @@ class WeatherCollector:
 
         try:
             self.logger.info(
-                f"Fetching {granularity} data for {station['name']} ({station_key})")
+                f"Fetching {granularity} data for {station.name}")
             self.logger.info(f"Period: {start_date} to {end_date}")
 
             response = requests.get(self.base_url, params=params)
@@ -97,8 +105,7 @@ class WeatherCollector:
             result = {
                 'status_code': response.status_code,
                 'url': response.url,
-                'station_key': station_key,
-                'station_name': station['name'],
+                'station_name': station.name,
                 'granularity': granularity
             }
 
@@ -116,19 +123,27 @@ class WeatherCollector:
                     result['data_points'] = 0
 
                 self.logger.info(
-                    f"✅ {result['data_points']} data points fetched for {station['name']}")
+                    f"✅ {result['data_points']} data points fetched for {station.name}")
+            elif response.status_code == 429:
+                result['success'] = False
+                result['error'] = "Rate limit exceeded"
+                self.logger.error(
+                    f"❌ Rate limit exceeded for {station.name}: {response.text}")
+                time.sleep(60)
+                return self.fetch_station_data(
+                    station, start_date, end_date, granularity)
 
             else:
                 result['success'] = False
                 result['error'] = response.text
                 self.logger.error(
-                    f"❌ Error {response.status_code} for {station['name']}: {response.text}")
+                    f"❌ Error {response.status_code} for {station.name}: {response.text}")
 
             return result
 
         except Exception as e:
-            self.logger.error(f"❌ Exception for {station['name']}: {str(e)}")
-            return {"error": str(e), "success": False, "station_key": station_key}
+            self.logger.error(f"❌ Exception for {station.name}: {str(e)}")
+            return {"error": str(e), "success": False, "station name": station.name}
 
     def fetch_all_stations_data(self,
                                 start_date: datetime,
@@ -138,10 +153,10 @@ class WeatherCollector:
         Récupère données météo pour toutes les stations
         """
         all_results = {}
-        for station_key in self.stations.keys():
+        for station in self.stations:
             results = self.fetch_station_data(
-                station_key, start_date, end_date, granularity)
-            all_results[station_key] = results
+                station, start_date, end_date, granularity)
+            all_results[station.name] = results
 
         return all_results
 
@@ -154,7 +169,7 @@ class WeatherCollector:
 
         data = raw_data['data']
         granularity = raw_data['granularity']
-        station_key = raw_data['station_key']
+        station_key = raw_data['station_name']
 
         # Sélection des données selon granularité
         if granularity == 'hourly' and 'hourly' in data:
@@ -180,7 +195,7 @@ class WeatherCollector:
         # Conversion datetime et ajout métadonnées
         df['datetime'] = pd.to_datetime(df['datetime'])
         df['station'] = station_key
-        df['station_name'] = self.stations[station_key]['name']
+        df['station_name'] = station_key
 
         # Conversion timestamp unix (comme votre RTECollector)
         df['timestamp'] = df['datetime'].apply(
@@ -213,7 +228,8 @@ class WeatherCollector:
         self.logger.info(f"Starting weather data collection")
         self.logger.info(f"Period: {start_date} to {end_date}")
         self.logger.info(f"Granularity: {granularity}")
-        self.logger.info(f"Stations: {list(self.stations.keys())}")
+        self.logger.info(
+            f"Stations: {[stations.name for stations in self.stations]}")
 
         # Récupération données toutes stations
         all_results = self.fetch_all_stations_data(
@@ -253,19 +269,15 @@ class WeatherCollector:
 
         return successful_saves
 
-    def get_available_stations(self) -> Dict[str, Dict]:
+    def get_available_stations(self) -> list[WeatherStation]:
         """
         Retourne la liste des stations disponibles
         """
         return self.stations
 
-    def add_custom_station(self, key: str, lat: float, lon: float, name: str):
+    def add_custom_station(self, name: str, lat: float, lon: float):
         """
         Ajoute une station personnalisée
         """
-        self.stations[key] = {
-            'lat': lat,
-            'lon': lon,
-            'name': name
-        }
-        self.logger.info(f"Added custom station: {name} ({key})")
+        self.stations.append(WeatherStation(name, lat, lon))
+        self.logger.info(f"Added custom station: {name}")
